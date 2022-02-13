@@ -1,0 +1,98 @@
+/*
+  BLE_Peripheral.ino
+
+  This program uses the ArduinoBLE library to set-up an Arduino Nano 33 BLE
+  as a peripheral device and specifies a service and a characteristic. Depending
+  of the value of the specified characteristic, an on-board LED gets on.
+
+  The circuit:
+  - Arduino Nano 33 BLE.
+
+  This example code is in the public domain.
+*/
+
+#include <ArduinoBLE.h>
+#include <Adafruit_NeoPixel.h>
+
+
+
+#ifdef __AVR__
+#include <avr/power.h> // Required for 16 MHz Adafruit Trinket
+#endif
+#define LED_PIN     2
+#define LED_COUNT  27
+#define BRIGHTNESS 50 // Set BRIGHTNESS to about 1/5 (max = 255)
+
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+
+
+const char* deviceServiceUuid = "19b10002-e8f2-537e-4f6c-d104768a1214";
+const char* deviceServiceCharacteristicUuid = "19b10003-e8f2-537e-4f6c-d104768a1214";
+
+int gesture = -1;
+
+BLEService gestureService(deviceServiceUuid);
+BLEByteCharacteristic gestureCharacteristic(deviceServiceCharacteristicUuid, BLERead | BLEWrite);
+
+
+void setup() {
+  Serial.begin(9600);
+  while (!Serial);
+
+  if (!BLE.begin()) {
+    Serial.println("- Starting BLE module failed!");
+    while (1);
+  }
+
+  BLE.setLocalName("Arduino Nano 33 BLE (Peripheral2)");
+  BLE.setAdvertisedService(gestureService);
+  gestureService.addCharacteristic(gestureCharacteristic);
+  BLE.addService(gestureService);
+  gestureCharacteristic.writeValue(-1);
+  BLE.advertise();
+
+  Serial.println("Nano 33 BLE (Peripheral Device)");
+  Serial.println(" ");
+}
+
+void loop() {
+  BLEDevice central = BLE.central();
+  Serial.println("- Discovering central device...");
+  delay(500);
+
+  if (central) {
+    Serial.println("* Connected to central device!");
+    Serial.print("* Device MAC address: ");
+    Serial.println(central.address());
+    Serial.println(" ");
+
+    while (central.connected()) {
+      if (gestureCharacteristic.written()) {
+        gesture = gestureCharacteristic.value();
+        if (gesture == 10) {
+          colorWipe(strip.Color(100, 100, 100), 5);
+        } else {
+          colorWipe(strip.Color(50, 0, 0), 5);
+        }
+        writeGesture(gesture);
+      }
+//        digitalWrite(13, LOW);
+    }
+
+    Serial.println("* Disconnected to central device!");
+  }
+}
+
+void writeGesture(int gesture) {
+  Serial.println("- Characteristic <gesture_type> has changed!");
+  Serial.print(gesture);
+}
+
+
+void colorWipe(uint32_t color, int wait) {
+  for (int i = 1; i < strip.numPixels(); i++) { // For each pixel in strip...
+    strip.setPixelColor(i, color);         //  Set pixel's color (in RAM)
+    strip.show();                          //  Update strip to match
+    delay(wait);                           //  Pause for a moment
+  }
+}
