@@ -88,7 +88,7 @@ void loop() {
   } else {
     s = 0;
   }
-
+//апрапрапр
 }
 void colorWipe(uint32_t color, int wait) {
   for (int i = 1; i < strip.numPixels(); i++) { // For each pixel in strip...
